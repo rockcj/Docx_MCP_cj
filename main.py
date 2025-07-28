@@ -18,7 +18,8 @@ from core.models import DocumentPatch
 mcp = FastMCP("docx_handler")
 
 # 阿里云OSS配置
-# 请在环境变量中设置以下配置或在部署时替换为实际值
+# 注意：以下为示例配置，实际部署时请替换为真实值
+# 建议通过环境变量或配置文件管理敏感信息
 OSS_CONFIG = {
     "endpoint": "https://oss-cn-shenzhen.aliyuncs.com",
     "access_key": "LTAI5tEX4A49ZUeya8DCCNGd",
