@@ -1,19 +1,33 @@
-# FastAPI 和相关组件
-fastapi
-uvicorn[standard]
-pydantic>=2.0.0
+# Enhanced DOCX MCP处理器依赖文件
+# 包含原有功能和增强功能的所有依赖
 
-# Word文档处理
-python-docx
-
-# MCP 服务端框架
+# 核心依赖
 fastmcp
+fastmcp>=0.5.0
+mcp>=1.0.0
+python-docx
+python-docx>=1.1.0
 
-# HTTP请求库
-requests
+# 图片处理
+Pillow>=10.0.0
 
-# 阿里云OSS SDK
+# 网络和存储
 oss2
+oss2>=2.18.0
+requests
+requests>=2.31.0
 
-# 用于.doc转换（可选，但推荐用于Windows环境）
-# pywin32 
+# 数据处理
+pydantic>=2.0.0
+pydantic>=2.5.0
+typing-extensions>=4.8.0
+
+# 其他依赖
+black>=23.0.0
+colorlog>=6.7.0
+fastapi
+flake8>=6.0.0
+mypy>=1.7.0
+pytest-asyncio>=0.21.0
+pytest>=7.4.0
+uvicorn[standard]

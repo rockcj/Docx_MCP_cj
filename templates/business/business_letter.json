@@ -1,0 +1,137 @@
+{
+  "template_metadata": {
+    "id": "business_letter_001",
+    "name": "正式商务书信",
+    "category": "business",
+    "version": "1.0",
+    "description": "标准商务书信模板，包含完整的格式和结构",
+    "author": "system",
+    "created_date": "2024-01-01",
+    "tags": ["商务", "正式", "书信"],
+    "difficulty_level": "beginner"
+  },
+  "template_structure": {
+    "page_settings": {
+      "margins": {
+        "top": 2.54,
+        "bottom": 2.54,
+        "left": 3.18,
+        "right": 3.18
+      },
+      "font_family": "宋体",
+      "font_size": 12,
+      "line_spacing": 1.5
+    },
+    "sections": [
+      {
+        "section_id": "header",
+        "section_type": "paragraph",
+        "content": {
+          "text": "{{company_name}}",
+          "alignment": "right",
+          "font_size": 14,
+          "bold": true
+        },
+        "position": "top",
+        "required": true
+      },
+      {
+        "section_id": "date",
+        "section_type": "paragraph",
+        "content": {
+          "text": "{{current_date}}",
+          "alignment": "right"
+        },
+        "position": "after_header",
+        "required": true
+      },
+      {
+        "section_id": "recipient",
+        "section_type": "paragraph",
+        "content": {
+          "text": "{{recipient_name}}\n{{recipient_title}}\n{{recipient_company}}",
+          "alignment": "left"
+        },
+        "position": "after_date",
+        "required": true
+      },
+      {
+        "section_id": "greeting",
+        "section_type": "paragraph",
+        "content": {
+          "text": "尊敬的{{recipient_title}}：",
+          "alignment": "left"
+        },
+        "position": "after_recipient",
+        "required": true
+      },
+      {
+        "section_id": "body",
+        "section_type": "paragraph",
+        "content": {
+          "text": "{{letter_content}}",
+          "alignment": "justify",
+          "indent_first_line": true
+        },
+        "position": "after_greeting",
+        "required": true,
+        "editable": true
+      },
+      {
+        "section_id": "closing",
+        "section_type": "paragraph",
+        "content": {
+          "text": "此致\n敬礼！",
+          "alignment": "right"
+        },
+        "position": "after_body",
+        "required": true
+      },
+      {
+        "section_id": "signature",
+        "section_type": "paragraph",
+        "content": {
+          "text": "{{sender_name}}\n{{sender_title}}\n{{current_date}}",
+          "alignment": "right"
+        },
+        "position": "after_closing",
+        "required": true
+      }
+    ]
+  },
+  "template_rules": {
+    "editable_sections": ["body"],
+    "required_variables": [
+      "company_name",
+      "recipient_name",
+      "recipient_title",
+      "recipient_company",
+      "letter_content",
+      "sender_name",
+      "sender_title"
+    ],
+    "optional_variables": [
+      "current_date"
+    ],
+    "validation_rules": {
+      "max_body_length": 2000,
+      "min_body_length": 50,
+      "required_sections": ["header", "date", "recipient", "greeting", "body", "closing", "signature"]
+    }
+  },
+  "ai_guidance": {
+    "suggested_prompts": [
+      "请填写收件人信息",
+      "请描述信件的主要内容",
+      "请确认发件人信息"
+    ],
+    "content_examples": {
+      "letter_content": "感谢您对我们产品的关注，我们很高兴为您提供详细的产品信息..."
+    },
+    "style_guidelines": [
+      "使用正式、礼貌的语言",
+      "内容简洁明了",
+      "避免使用过于复杂的句式"
+    ]
+  }
+}

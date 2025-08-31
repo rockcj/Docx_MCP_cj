@@ -1,0 +1,68 @@
+[project]
+name = "docx-mcp"
+version = "0.1.1"
+description = "A MCP (Model Context Protocol) service for Word document processing, providing document structure extraction, content modification and file management capabilities."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+maintainers = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+keywords = ["mcp", "docx", "document", "processing", "word", "microsoft", "office"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Office Suites",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: General",
+]
+dependencies = [
+    "mcp[cli]>=1.12.0",
+    "oss2>=2.19.1",
+    "fastmcp>=0.2.0",
+    "python-docx>=1.1.0",
+    "requests>=2.31.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/docx_mcp"
+Repository = "https://github.com/yourusername/docx_mcp"
+Issues = "https://github.com/yourusername/docx_mcp/issues"
+Documentation = "https://github.com/yourusername/docx_mcp#readme"
+
+[project.scripts]
+docx-mcp = "main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+exclude = [
+    "/.git",
+    "/.venv",
+    "/__pycache__",
+    "*.pyc",
+    "*.pyo",
+    "*.pyd",
+    ".Python",
+]
+
+[tool.uv]
+dev-dependencies = []

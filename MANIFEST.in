@@ -1,0 +1,48 @@
+# 包含所有必要的文件用于PyPI分发
+
+# 主要Python文件
+include *.py
+include enhanced_main.py
+include enhanced_server.py
+
+# 核心模块
+recursive-include core *.py
+
+# 文档文件
+include README.md
+include README_Enhanced.md
+include LICENSE
+include CHANGELOG.md
+include MIGRATION_GUIDE.md
+
+# 配置文件
+include pyproject.toml
+include requirements.txt
+include env.example
+
+# 排除不必要的文件
+exclude *.docx
+exclude ~$*.docx
+exclude test_*.py
+exclude *_test.py
+exclude comprehensive_test.py
+exclude verify_row_insertion.py
+exclude test_row_insertion.py
+
+# 排除目录
+prune tests
+prune backup_old_files
+prune __pycache__
+prune .git
+prune .venv
+prune venv
+prune build
+prune dist
+prune *.egg-info
+
+# 排除临时文件
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *~
+global-exclude .DS_Store
+global-exclude Thumbs.db

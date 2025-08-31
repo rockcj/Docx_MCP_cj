@@ -1,0 +1,75 @@
+{
+  "template_metadata": {
+    "id": "academic_paper_simple",
+    "name": "简化学术论文模板",
+    "category": "academic",
+    "version": "1.0",
+    "description": "简化的学术论文模板",
+    "author": "system",
+    "created_date": "2024-01-01",
+    "tags": ["学术", "论文"],
+    "difficulty_level": "beginner"
+  },
+  "template_structure": {
+    "page_settings": {
+      "margins": {
+        "top": 2.54,
+        "bottom": 2.54,
+        "left": 3.18,
+        "right": 3.18
+      },
+      "font_family": "Times New Roman",
+      "font_size": 12,
+      "line_spacing": 2.0
+    },
+    "sections": [
+      {
+        "section_id": "title",
+        "section_type": "heading",
+        "content": {
+          "text": "{{paper_title}}",
+          "level": 1,
+          "alignment": "center",
+          "font_size": 16,
+          "bold": true
+        },
+        "position": "top",
+        "required": true
+      },
+      {
+        "section_id": "abstract",
+        "section_type": "heading",
+        "content": {
+          "text": "摘要",
+          "level": 2,
+          "bold": true
+        },
+        "position": "middle",
+        "required": true
+      },
+      {
+        "section_id": "abstract_content",
+        "section_type": "paragraph",
+        "content": {
+          "text": "{{abstract_content}}",
+          "alignment": "justify"
+        },
+        "position": "middle",
+        "required": true,
+        "editable": true
+      }
+    ]
+  },
+  "template_rules": {
+    "editable_sections": ["abstract_content"],
+    "required_variables": [
+      "paper_title",
+      "abstract_content"
+    ],
+    "optional_variables": [],
+    "validation_rules": {
+      "max_abstract_length": 500,
+      "min_abstract_length": 100
+    }
+  }
+}

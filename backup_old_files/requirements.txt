@@ -1,0 +1,19 @@
+# FastAPI 和相关组件
+fastapi
+uvicorn[standard]
+pydantic>=2.0.0
+
+# Word文档处理
+python-docx
+
+# MCP 服务端框架
+fastmcp
+
+# HTTP请求库
+requests
+
+# 阿里云OSS SDK
+oss2
+
+# 用于.doc转换（可选，但推荐用于Windows环境）
+# pywin32 
