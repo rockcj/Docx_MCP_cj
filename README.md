@@ -6,6 +6,8 @@ A powerful Word document processing MCP service that provides document structure
 
 - **📄 Document Structure Extraction**: Intelligently parse .docx files, extract structured content such as paragraphs and tables, and assign unique IDs to each element
 - **✏️ Batch Content Modification**: Support precise text replacement and content updates based on element IDs
+- **📊 Advanced Table Operations**: Comprehensive table manipulation including adding/deleting rows/columns, formatting styles, and cell customization
+- **🎨 Table Formatting**: Support table border styles, colors, column widths, cell alignment, fonts, and background colors
 - **☁️ Cloud Storage Integration**: Automatically upload modified documents to Alibaba Cloud OSS with convenient download links
 - **🔗 URL Document Processing**: Directly download, process and re-upload documents from network URLs
 - **🛠️ MCP Standard Compliance**: Fully compliant with Model Context Protocol specifications, supporting standard MCP clients
@@ -44,7 +46,9 @@ For local development or testing, you can use:
 
 ## 🛠️ Available Tools
 
-### 1. extract_document_structure
+### Basic Document Operations
+
+#### 1. extract_document_structure
 Download and parse .docx file structure from URL
 
 **Parameters:**
@@ -52,7 +56,7 @@ Download and parse .docx file structure from URL
 
 **Returns:** Dictionary containing document structure with each element having a unique ID
 
-### 2. apply_modifications_to_document  
+#### 2. apply_modifications_to_document  
 Apply modifications to .docx files
 
 **Parameters:**
@@ -61,12 +65,12 @@ Apply modifications to .docx files
 
 **Returns:** Base64 encoding of the modified file
 
-### 3. get_modified_document
+#### 3. get_modified_document
 Get modified document (alias for apply_modifications_to_document)
 
 **Parameters:** Same as apply_modifications_to_document
 
-### 4. prepare_document_for_download
+#### 4. prepare_document_for_download
 Upload modified document to Alibaba Cloud OSS
 
 **Parameters:**
@@ -75,7 +79,7 @@ Upload modified document to Alibaba Cloud OSS
 
 **Returns:** Dictionary containing upload results and download links
 
-### 5. process_document_from_url
+#### 5. process_document_from_url
 Complete workflow to download document from URL, apply modifications, and upload to OSS
 
 **Parameters:**
@@ -84,9 +88,80 @@ Complete workflow to download document from URL, apply modifications, and upload
 
 **Returns:** Dictionary containing processing results and download links
 
+### Advanced Table Operations
+
+#### 6. modify_table_structure
+Comprehensive table structure modification operations
+
+**Parameters:**
+- `document_url` (string): URL of the original document
+- `table_operations_json` (string): JSON array of table operation instructions
+
+**Returns:** Dictionary containing processing results and download links
+
+#### 7. add_table_row
+Add new row to specified table
+
+**Parameters:**
+- `document_url` (string): Document URL
+- `table_id` (string): Table ID (e.g., "tbl_0")
+- `row_index` (int, optional): Insert position, null for append
+- `cell_data` (List[str], optional): Cell data for new row
+
+#### 8. add_table_column
+Add new column to specified table
+
+**Parameters:**
+- `document_url` (string): Document URL
+- `table_id` (string): Table ID (e.g., "tbl_0")
+- `column_index` (int, optional): Insert position, null for append
+- `cell_data` (List[str], optional): Cell data for new column
+
+#### 9. delete_table_row
+Delete specified table row
+
+**Parameters:**
+- `document_url` (string): Document URL
+- `table_id` (string): Table ID (e.g., "tbl_0")
+- `row_index` (int): Row index to delete
+
+#### 10. delete_table_column
+Delete specified table column
+
+**Parameters:**
+- `document_url` (string): Document URL
+- `table_id` (string): Table ID (e.g., "tbl_0")
+- `column_index` (int): Column index to delete
+
+#### 11. format_table_style
+Format table appearance and layout
+
+**Parameters:**
+- `document_url` (string): Document URL
+- `table_id` (string): Table ID (e.g., "tbl_0")
+- `border_style` (string): Border style ("none", "single", "double", "thick", "thin")
+- `border_color` (string): Border color (hex code, e.g., "#000000")
+- `width` (string, optional): Table width (e.g., "100%")
+- `column_widths` (List[str], optional): Column widths (e.g., ["2cm", "3cm"])
+
+#### 12. format_table_cell
+Format individual cell appearance
+
+**Parameters:**
+- `document_url` (string): Document URL
+- `table_id` (string): Table ID (e.g., "tbl_0")
+- `cell_id` (string): Cell ID (e.g., "tbl_0_r0c1")
+- `alignment` (string, optional): Text alignment ("left", "center", "right", "justify")
+- `bold` (bool, optional): Bold text
+- `italic` (bool, optional): Italic text
+- `font_size` (int, optional): Font size
+- `font_name` (string, optional): Font family
+- `background_color` (string, optional): Background color (hex code)
+- `text_color` (string, optional): Text color (hex code)
+
 ## 📝 Usage Examples
 
-### Modification Instruction Format
+### Basic Content Modification Format
 
 ```json
 [
@@ -95,18 +170,85 @@ Complete workflow to download document from URL, apply modifications, and upload
     "new_content": "New paragraph content"
   },
   {
-    "element_id": "table_0_cell_0_0", 
+    "element_id": "tbl_0_r0c0", 
     "new_content": "New table cell content"
   }
 ]
 ```
 
-### Typical Workflow
+### Table Operations Format
 
+```json
+[
+  {
+    "operation_type": "add_row",
+    "table_id": "tbl_0",
+    "row_index": 1,
+    "cell_data": ["New Row Data 1", "New Row Data 2", "New Row Data 3"]
+  },
+  {
+    "operation_type": "format_table",
+    "table_id": "tbl_0",
+    "table_format": {
+      "border_style": "double",
+      "border_color": "#FF0000",
+      "column_widths": ["3cm", "4cm", "5cm"]
+    }
+  },
+  {
+    "operation_type": "format_cell",
+    "table_id": "tbl_0",
+    "cell_id": "tbl_0_r0c0",
+    "cell_format": {
+      "alignment": "center",
+      "bold": true,
+      "font_size": 14,
+      "background_color": "#FFFF00",
+      "text_color": "#FF0000"
+    }
+  }
+]
+```
+
+### Typical Workflows
+
+#### Basic Document Processing
 1. **Extract Document Structure**: Use `extract_document_structure` to get IDs of all elements in the document
 2. **Prepare Modification Instructions**: Create modification instruction JSON based on element IDs
 3. **Process Document**: Use `process_document_from_url` to complete download, modification, and upload in one step
 4. **Get Results**: Retrieve the processed document from the returned download link
+
+#### Advanced Table Operations
+1. **Extract Document Structure**: Get table IDs and current structure
+2. **Plan Table Modifications**: Determine what rows/columns to add/delete and formatting to apply
+3. **Execute Table Operations**: Use table operation tools like `add_table_row`, `format_table_style`, etc.
+4. **Download Results**: Get the modified document from the returned download link
+
+#### Complex Table Restructuring
+```json
+// Example: Comprehensive table modification
+[
+  {
+    "operation_type": "add_column",
+    "table_id": "tbl_0",
+    "column_index": 2,
+    "cell_data": ["New Column", "Data 1", "Data 2"]
+  },
+  {
+    "operation_type": "delete_row",
+    "table_id": "tbl_0",
+    "row_index": 3
+  },
+  {
+    "operation_type": "format_table",
+    "table_id": "tbl_0",
+    "table_format": {
+      "border_style": "thick",
+      "border_color": "#0000FF"
+    }
+  }
+]
+```
 
 ## 🚀 Quick Start
 

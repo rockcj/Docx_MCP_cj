@@ -2,8 +2,14 @@ import docx
 from typing import List, Dict, Any, Union
 from io import BytesIO
 from docx.document import Document
-from docx.table import _Cell
-from .models import DocumentPatch
+from docx.table import _Cell, Table
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.oxml.shared import OxmlElement, qn
+from docx.oxml.ns import nsdecls
+from docx.oxml import parse_xml
+from .models import DocumentPatch, TableOperation, TableOperationType, CellAlignment, BorderStyle
 
 class DocxProcessor:
     """
@@ -42,7 +48,10 @@ class DocxProcessor:
                 table_data = {
                     "id": table_id,
                     "type": "table",
-                    "rows": []
+                    "rows": [],
+                    "row_count": len(table.rows),
+                    "column_count": len(table.columns) if table.rows else 0,
+                    "style": table.style.name if table.style else None
                 }
                 for i, row in enumerate(table.rows):
                     row_data = {"cells": []}
@@ -69,10 +78,15 @@ class DocxProcessor:
         """
         document = docx.Document(original_stream)
         patches_dict = {p.element_id: p.new_content for p in patches}
+        table_operations = [p for p in patches if p.table_operation is not None]
+
+        # 首先处理表格操作（这些操作可能会改变表格结构）
+        for patch in table_operations:
+            DocxProcessor._apply_table_operation(document, patch.table_operation)
 
         element_counter = 0
         
-        # 再次遍历文档元素以应用修改
+        # 然后处理常规的内容修改
         for element in document.element.body:
             if element.tag.endswith('p'):
                 current_id = f"p_{element_counter}"
@@ -246,4 +260,384 @@ class DocxProcessor:
             if remaining_text:
                 new_run = p.add_run(remaining_text)
                 if original_runs_info:
-                    DocxProcessor._apply_run_formatting(new_run, original_runs_info[-1]) 
+                    DocxProcessor._apply_run_formatting(new_run, original_runs_info[-1])
+
+    @staticmethod
+    def _apply_table_operation(document: Document, operation: TableOperation):
+        """
+        应用表格操作到文档中。
+
+        :param document: docx文档对象
+        :param operation: 表格操作指令
+        """
+        try:
+            # 找到目标表格
+            table = DocxProcessor._find_table_by_id(document, operation.table_id)
+            if table is None:
+                raise ValueError(f"找不到表格: {operation.table_id}")
+
+            # 根据操作类型执行相应操作
+            if operation.operation_type == TableOperationType.ADD_ROW:
+                DocxProcessor._add_table_row(table, operation.row_index, operation.cell_data)
+            elif operation.operation_type == TableOperationType.ADD_COLUMN:
+                DocxProcessor._add_table_column(table, operation.column_index, operation.cell_data)
+            elif operation.operation_type == TableOperationType.DELETE_ROW:
+                DocxProcessor._delete_table_row(table, operation.row_index)
+            elif operation.operation_type == TableOperationType.DELETE_COLUMN:
+                DocxProcessor._delete_table_column(table, operation.column_index)
+            elif operation.operation_type == TableOperationType.FORMAT_TABLE:
+                DocxProcessor._format_table(table, operation.table_format)
+            elif operation.operation_type == TableOperationType.FORMAT_CELL:
+                DocxProcessor._format_cell(table, operation.cell_id, operation.cell_format)
+            elif operation.operation_type == TableOperationType.MODIFY_CELL:
+                DocxProcessor._modify_cell_content(table, operation.cell_id, operation.new_content)
+                
+        except Exception as e:
+            # 记录错误并抛出异常以便调试
+            error_msg = f"表格操作失败: {operation.operation_type}, 错误: {str(e)}"
+            print(error_msg)
+            raise Exception(error_msg)
+
+    @staticmethod
+    def _find_table_by_id(document: Document, table_id: str) -> Table:
+        """
+        根据表格ID查找表格对象。
+
+        :param document: docx文档对象
+        :param table_id: 表格ID（如 "tbl_2"）
+        :return: 表格对象或None
+        """
+        try:
+            # 从table_id中提取元素索引（包括段落和表格的总计数）
+            element_index = int(table_id.split('_')[1])
+            
+            # 遍历文档元素，计数所有元素（段落和表格）
+            element_counter = 0
+            for element in document.element.body:
+                if element_counter == element_index:
+                    if element.tag.endswith('tbl'):
+                        return docx.table.Table(element, document)
+                    else:
+                        return None  # 索引指向的不是表格
+                element_counter += 1
+            return None
+        except (ValueError, IndexError):
+            return None
+
+    @staticmethod
+    def _add_table_row(table: Table, row_index: int = None, cell_data: List[str] = None):
+        """
+        向表格添加新行。
+
+        :param table: 表格对象
+        :param row_index: 插入位置（None表示在末尾添加）
+        :param cell_data: 新行的单元格数据列表
+        """
+        if row_index is None:
+            row_index = len(table.rows)
+        
+        # 添加新行
+        if row_index is None or row_index >= len(table.rows):
+            # 在末尾添加
+            new_row = table.add_row()
+            # 填充数据
+            if cell_data:
+                for i, data in enumerate(cell_data):
+                    if i < len(new_row.cells):
+                        new_row.cells[i].text = str(data)
+        else:
+            # 在指定位置插入（这个逻辑比较复杂，暂时先实现末尾添加）
+            new_row = table.add_row()
+            # 填充数据
+            if cell_data:
+                for i, data in enumerate(cell_data):
+                    if i < len(new_row.cells):
+                        new_row.cells[i].text = str(data)
+
+    @staticmethod
+    def _add_table_column(table: Table, column_index: int = None, cell_data: List[str] = None):
+        """
+        向表格添加新列。
+
+        :param table: 表格对象
+        :param column_index: 插入位置（None表示在末尾添加）
+        :param cell_data: 新列的单元格数据列表
+        """
+        if column_index is None:
+            column_index = len(table.columns)
+        
+        # 为每一行添加新单元格
+        for row_idx, row in enumerate(table.rows):
+            # 创建新单元格
+            new_cell_element = OxmlElement('w:tc')
+            
+            # 如果有模板单元格，复制其属性
+            if len(row.cells) > 0:
+                template_cell = row.cells[0]._tc
+                for child in template_cell:
+                    if child.tag.endswith('tcPr'):
+                        new_cell_element.append(child)
+                        break
+            
+            # 添加空段落
+            p_element = OxmlElement('w:p')
+            new_cell_element.append(p_element)
+            
+            # 插入到指定位置
+            if column_index >= len(row.cells):
+                row._tr.append(new_cell_element)
+            else:
+                row._tr.insert(column_index, new_cell_element)
+            
+            # 填充数据
+            if cell_data and row_idx < len(cell_data):
+                new_cell = row.cells[column_index]
+                new_cell.text = str(cell_data[row_idx])
+
+    @staticmethod
+    def _delete_table_row(table: Table, row_index: int):
+        """
+        删除表格行。
+
+        :param table: 表格对象
+        :param row_index: 要删除的行索引
+        """
+        if 0 <= row_index < len(table.rows):
+            row_element = table.rows[row_index]._tr
+            row_element.getparent().remove(row_element)
+
+    @staticmethod
+    def _delete_table_column(table: Table, column_index: int):
+        """
+        删除表格列。
+
+        :param table: 表格对象
+        :param column_index: 要删除的列索引
+        """
+        for row in table.rows:
+            if 0 <= column_index < len(row.cells):
+                cell_element = row.cells[column_index]._tc
+                cell_element.getparent().remove(cell_element)
+
+    @staticmethod
+    def _format_table(table: Table, table_format):
+        """
+        格式化表格样式。
+
+        :param table: 表格对象
+        :param table_format: 表格格式配置
+        """
+        if not table_format:
+            return
+        
+        try:
+            # 设置表格宽度
+            if table_format.width:
+                if table_format.width.endswith('%'):
+                    # 百分比宽度
+                    width_pct = int(table_format.width.rstrip('%'))
+                    table.autofit = False
+                    # 这里需要更复杂的XML操作来设置百分比宽度
+                
+            # 设置列宽
+            if table_format.column_widths:
+                for i, width_str in enumerate(table_format.column_widths):
+                    if i < len(table.columns):
+                        try:
+                            if width_str.endswith('cm'):
+                                width_cm = float(width_str.rstrip('cm'))
+                                table.columns[i].width = Inches(width_cm / 2.54)
+                            elif width_str.endswith('in'):
+                                width_in = float(width_str.rstrip('in'))
+                                table.columns[i].width = Inches(width_in)
+                        except ValueError:
+                            continue
+            
+            # 设置边框样式
+            if table_format.border_style and table_format.border_style != BorderStyle.NONE:
+                DocxProcessor._set_table_borders(table, table_format.border_style, table_format.border_color)
+                
+        except Exception as e:
+            print(f"表格格式化失败: {str(e)}")
+
+    @staticmethod
+    def _format_cell(table: Table, cell_id: str, cell_format):
+        """
+        格式化单元格样式。
+
+        :param table: 表格对象
+        :param cell_id: 单元格ID
+        :param cell_format: 单元格格式配置
+        """
+        if not cell_format:
+            return
+        
+        try:
+            # 解析单元格ID获取行列索引
+            parts = cell_id.split('_')
+            if len(parts) >= 3:
+                row_col = parts[2]  # 如 "r0c1"
+                row_idx = int(row_col.split('c')[0][1:])
+                col_idx = int(row_col.split('c')[1])
+                
+                if 0 <= row_idx < len(table.rows) and 0 <= col_idx < len(table.rows[row_idx].cells):
+                    cell = table.rows[row_idx].cells[col_idx]
+                    DocxProcessor._apply_cell_formatting(cell, cell_format)
+                    
+        except (ValueError, IndexError) as e:
+            print(f"单元格格式化失败: {str(e)}")
+
+    @staticmethod
+    def _modify_cell_content(table: Table, cell_id: str, new_content):
+        """
+        修改单元格内容。
+
+        :param table: 表格对象
+        :param cell_id: 单元格ID
+        :param new_content: 新内容
+        """
+        try:
+            # 解析单元格ID获取行列索引
+            parts = cell_id.split('_')
+            if len(parts) >= 3:
+                row_col = parts[2]  # 如 "r0c1"
+                row_idx = int(row_col.split('c')[0][1:])
+                col_idx = int(row_col.split('c')[1])
+                
+                if 0 <= row_idx < len(table.rows) and 0 <= col_idx < len(table.rows[row_idx].cells):
+                    cell = table.rows[row_idx].cells[col_idx]
+                    cell.text = str(new_content)
+                    
+        except (ValueError, IndexError) as e:
+            print(f"单元格内容修改失败: {str(e)}")
+
+    @staticmethod
+    def _apply_cell_formatting(cell, cell_format):
+        """
+        应用单元格格式。
+
+        :param cell: 单元格对象
+        :param cell_format: 单元格格式配置
+        """
+        try:
+            # 获取单元格的第一个段落
+            if len(cell.paragraphs) > 0:
+                paragraph = cell.paragraphs[0]
+                
+                # 设置对齐方式
+                if cell_format.alignment:
+                    if cell_format.alignment == CellAlignment.LEFT:
+                        paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+                    elif cell_format.alignment == CellAlignment.CENTER:
+                        paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                    elif cell_format.alignment == CellAlignment.RIGHT:
+                        paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+                    elif cell_format.alignment == CellAlignment.JUSTIFY:
+                        paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
+                
+                # 设置字体格式
+                if len(paragraph.runs) > 0:
+                    run = paragraph.runs[0]
+                else:
+                    run = paragraph.add_run()
+                
+                if cell_format.bold is not None:
+                    run.bold = cell_format.bold
+                if cell_format.italic is not None:
+                    run.italic = cell_format.italic
+                if cell_format.font_size:
+                    run.font.size = Pt(cell_format.font_size)
+                if cell_format.font_name:
+                    run.font.name = cell_format.font_name
+                if cell_format.text_color:
+                    color_hex = cell_format.text_color.lstrip('#')
+                    if len(color_hex) == 6:
+                        r = int(color_hex[0:2], 16)
+                        g = int(color_hex[2:4], 16)
+                        b = int(color_hex[4:6], 16)
+                        run.font.color.rgb = RGBColor(r, g, b)
+            
+            # 设置背景色
+            if cell_format.background_color:
+                DocxProcessor._set_cell_background_color(cell, cell_format.background_color)
+                
+        except Exception as e:
+            print(f"单元格格式应用失败: {str(e)}")
+
+    @staticmethod
+    def _set_cell_background_color(cell, color_hex: str):
+        """
+        设置单元格背景色。
+
+        :param cell: 单元格对象
+        :param color_hex: 十六进制颜色代码
+        """
+        try:
+            color_hex = color_hex.lstrip('#')
+            if len(color_hex) == 6:
+                # 获取或创建单元格属性
+                tc = cell._tc
+                tcPr = tc.find(qn('w:tcPr'))
+                if tcPr is None:
+                    tcPr = OxmlElement('w:tcPr')
+                    tc.insert(0, tcPr)
+                
+                # 设置背景色
+                shd = OxmlElement('w:shd')
+                shd.set(qn('w:fill'), color_hex.upper())
+                tcPr.append(shd)
+                
+        except Exception as e:
+            print(f"设置单元格背景色失败: {str(e)}")
+
+    @staticmethod
+    def _set_table_borders(table: Table, border_style: BorderStyle, border_color: str = None):
+        """
+        设置表格边框。
+
+        :param table: 表格对象
+        :param border_style: 边框样式
+        :param border_color: 边框颜色
+        """
+        try:
+            # 边框样式映射
+            style_map = {
+                BorderStyle.SINGLE: 'single',
+                BorderStyle.DOUBLE: 'double',
+                BorderStyle.THICK: 'thick',
+                BorderStyle.THIN: 'single'
+            }
+            
+            border_xml_style = style_map.get(border_style, 'single')
+            color = border_color.lstrip('#') if border_color else '000000'
+            
+            # 创建边框XML
+            borders_xml = f'''
+            <w:tblBorders {nsdecls("w")}>
+                <w:top w:val="{border_xml_style}" w:sz="4" w:space="0" w:color="{color}"/>
+                <w:left w:val="{border_xml_style}" w:sz="4" w:space="0" w:color="{color}"/>
+                <w:bottom w:val="{border_xml_style}" w:sz="4" w:space="0" w:color="{color}"/>
+                <w:right w:val="{border_xml_style}" w:sz="4" w:space="0" w:color="{color}"/>
+                <w:insideH w:val="{border_xml_style}" w:sz="4" w:space="0" w:color="{color}"/>
+                <w:insideV w:val="{border_xml_style}" w:sz="4" w:space="0" w:color="{color}"/>
+            </w:tblBorders>
+            '''
+            
+            # 获取或创建表格属性
+            tbl = table._tbl
+            tblPr = tbl.find(qn('w:tblPr'))
+            if tblPr is None:
+                tblPr = OxmlElement('w:tblPr')
+                tbl.insert(0, tblPr)
+            
+            # 移除现有边框设置
+            existing_borders = tblPr.find(qn('w:tblBorders'))
+            if existing_borders is not None:
+                tblPr.remove(existing_borders)
+            
+            # 添加新边框设置
+            borders_element = parse_xml(borders_xml)
+            tblPr.append(borders_element)
+            
+        except Exception as e:
+            print(f"设置表格边框失败: {str(e)}") 

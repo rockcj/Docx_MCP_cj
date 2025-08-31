@@ -1,6 +1,7 @@
 # FastAPI 和相关组件
 fastapi
 uvicorn[standard]
+pydantic>=2.0.0
 
 # Word文档处理
 python-docx
