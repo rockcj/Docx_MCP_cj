@@ -2412,24 +2412,82 @@ def get_server_info() -> str:
     """
     return "FinalCompleteDocxProcessor - 最终完整MCP服务器，包含所有基础工具和智能工具，提供完整功能"
 
-if __name__ == "__main__":
-    print("启动最终完整MCP服务器...")
-    print("功能模块:")
-    print("- 基础文档管理 (6个工具)")
-    print("- 智能文档创建 (1个工具)")
-    print("- 基础文本内容 (4个工具)")
-    print("- 智能内容处理 (1个工具)")
-    print("- 基础表格处理 (5个工具)")
-    print("- 表格结构提取 (4个工具)")
-    print("- 智能表格处理 (2个工具)")
-    print("- 智能规划指导 (3个工具)")
-    print("- 基础图片处理 (3个工具)")
-    print("- 基础页面设置 (3个工具)")
-    print("- 智能建议 (1个工具)")
-    print("- 系统状态 (3个工具)")
+def main():
+    """MCP服务器主入口函数 - 支持多种传输协议"""
+    import argparse
+    
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='DOCX MCP 服务器')
+    parser.add_argument('--transport', '-t', 
+                       choices=['stdio', 'sse', 'streamable-http'],
+                       default='stdio',
+                       help='传输协议类型 (默认: stdio)')
+    parser.add_argument('--host', 
+                       default='localhost',
+                       help='HTTP/SSE 服务器主机地址 (默认: localhost)')
+    parser.add_argument('--port', '-p',
+                       type=int,
+                       default=8000,
+                       help='HTTP/SSE 服务器端口 (默认: 8000)')
+    
+    args = parser.parse_args()
+    
+    print("=" * 60)
+    print("🚀 启动 DOCX MCP 服务器")
+    print("=" * 60)
     print()
-    print("总计: 36个工具 (26个基础工具 + 10个智能工具)")
+    print("📦 服务器信息:")
+    print(f"   名称: FinalCompleteDocxProcessor")
+    print(f"   传输协议: {args.transport.upper()}")
+    if args.transport in ['sse', 'streamable-http']:
+        print(f"   地址: http://{args.host}:{args.port}")
+    print()
+    print("🛠️  功能模块:")
+    print("   - 基础文档管理 (8个工具)")
+    print("   - 文本内容处理 (5个工具)")
+    print("   - 表格操作 (6个工具)")
+    print("   - 表格分析 (5个工具)")
+    print("   - 表格填充 (4个工具)")
+    print("   - 图片处理 (3个工具)")
+    print("   - 页面设置 (3个工具)")
+    print("   - 智能功能 (5个工具)")
+    print("   - 系统状态 (3个工具)")
+    print()
+    print("📊 总计: 42个MCP工具")
+    print("=" * 60)
     print()
     
-    # 启动MCP服务器
-    mcp.run()
+    # 根据传输协议启动MCP服务器
+    try:
+        if args.transport == 'stdio':
+            # STDIO 传输（默认，用于 Cursor/Claude Desktop）
+            logger.info("使用 STDIO 传输协议启动服务器")
+            mcp.run(transport='stdio')
+            
+        elif args.transport == 'sse':
+            # SSE (Server-Sent Events) 传输
+            logger.info(f"使用 SSE 传输协议启动服务器: {args.host}:{args.port}")
+            print(f"🌐 SSE 服务器运行在: http://{args.host}:{args.port}")
+            print(f"📡 连接端点: http://{args.host}:{args.port}/sse")
+            mcp.run(transport='sse', host=args.host, port=args.port)
+            
+        elif args.transport == 'streamable-http':
+            # Streamable HTTP 传输
+            logger.info(f"使用 Streamable HTTP 传输协议启动服务器: {args.host}:{args.port}")
+            print(f"🌐 HTTP 服务器运行在: http://{args.host}:{args.port}")
+            print(f"📡 API 端点: http://{args.host}:{args.port}/mcp")
+            mcp.run(transport='streamable-http', host=args.host, port=args.port)
+            
+    except KeyboardInterrupt:
+        print("\n")
+        print("👋 服务器已停止")
+        logger.info("服务器被用户中断")
+    except Exception as e:
+        print(f"\n❌ 服务器启动失败: {e}")
+        logger.error(f"服务器启动失败: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

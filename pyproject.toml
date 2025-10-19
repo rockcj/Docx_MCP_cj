@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docx-mcp"
-version = "0.1.4"
+version = "0.1.6"
 description = "DOCX MCP处理器 - 完整的Word文档处理工具，支持图片编辑和表格操作"
 readme = "README_Enhanced.md"
 license = {text = "MIT"}
@@ -75,12 +75,12 @@ Issues = "https://github.com/rockcj/Docx_MCP_cj/issues"
 Changelog = "https://github.com/rockcj/Docx_MCP_cj/blob/main/CHANGELOG.md"
 
 [project.scripts]
-docx-mcp = "enhanced_main:main"
-docx-interactive = "enhanced_main:run_interactive_mode"
+docx-mcp = "final_complete_server:main"
+docx-interactive = "final_complete_server:main"
 
 [tool.setuptools]
 packages = ["core"]
-py-modules = ["enhanced_main", "enhanced_server", "main"]
+py-modules = ["final_complete_server", "main"]
 
 [tool.setuptools.package-data]
 "*" = ["*.py"]
