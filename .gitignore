@@ -8,3 +8,30 @@ wheels/
 
 # Virtual environments
 .venv
+venv/
+env/
+
+# PyPI credentials (IMPORTANT: Never commit this!)
+.pypirc
+
+# Temporary Word files
+~$*.docx
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test/temporary directories
+Users/
+
+# State data (may contain sensitive info)
+state_data/*.json
+
+# Extracted images (temporary)
+extracted_images/
