@@ -2432,37 +2432,39 @@ def main():
     
     args = parser.parse_args()
     
-    print("=" * 60)
-    print("🚀 启动 DOCX MCP 服务器")
-    print("=" * 60)
-    print()
-    print("📦 服务器信息:")
-    print(f"   名称: FinalCompleteDocxProcessor")
-    print(f"   传输协议: {args.transport.upper()}")
-    if args.transport in ['sse', 'streamable-http']:
-        print(f"   地址: http://{args.host}:{args.port}")
-    print()
-    print("🛠️  功能模块:")
-    print("   - 基础文档管理 (8个工具)")
-    print("   - 文本内容处理 (5个工具)")
-    print("   - 表格操作 (6个工具)")
-    print("   - 表格分析 (5个工具)")
-    print("   - 表格填充 (4个工具)")
-    print("   - 图片处理 (3个工具)")
-    print("   - 页面设置 (3个工具)")
-    print("   - 智能功能 (5个工具)")
-    print("   - 系统状态 (3个工具)")
-    print()
-    print("📊 总计: 42个MCP工具")
-    print("=" * 60)
-    print()
+    # 只在非STDIO模式下输出启动信息
+    if args.transport != 'stdio':
+        print("=" * 60)
+        print("🚀 启动 DOCX MCP 服务器")
+        print("=" * 60)
+        print()
+        print("📦 服务器信息:")
+        print(f"   名称: FinalCompleteDocxProcessor")
+        print(f"   传输协议: {args.transport.upper()}")
+        if args.transport in ['sse', 'streamable-http']:
+            print(f"   地址: http://{args.host}:{args.port}")
+        print()
+        print("🛠️  功能模块:")
+        print("   - 基础文档管理 (8个工具)")
+        print("   - 文本内容处理 (5个工具)")
+        print("   - 表格操作 (6个工具)")
+        print("   - 表格分析 (5个工具)")
+        print("   - 表格填充 (4个工具)")
+        print("   - 图片处理 (3个工具)")
+        print("   - 页面设置 (3个工具)")
+        print("   - 智能功能 (5个工具)")
+        print("   - 系统状态 (3个工具)")
+        print()
+        print("📊 总计: 42个MCP工具")
+        print("=" * 60)
+        print()
     
     # 根据传输协议启动MCP服务器
     try:
         if args.transport == 'stdio':
             # STDIO 传输（默认，用于 Cursor/Claude Desktop）
             logger.info("使用 STDIO 传输协议启动服务器")
-            mcp.run(transport='stdio')
+            mcp.run(transport='stdio', show_banner=False)
             
         elif args.transport == 'sse':
             # SSE (Server-Sent Events) 传输
