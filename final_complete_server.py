@@ -24,6 +24,17 @@ sys.path.insert(0, str(project_root))
 
 from fastmcp import FastMCP
 
+# 混合传输模式所需的导入
+from contextlib import asynccontextmanager
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Route, Mount
+from starlette.types import Scope, Receive, Send
+from mcp.server.sse import SseServerTransport
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+import uvicorn
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -2412,50 +2423,158 @@ def get_server_info() -> str:
     """
     return "FinalCompleteDocxProcessor - 最终完整MCP服务器，包含所有基础工具和智能工具，提供完整功能"
 
+def create_hybrid_starlette_app(mcp_instance: FastMCP, *, debug: bool = False) -> Starlette:
+    """
+    创建同时支持 SSE 和 StreamableHTTP 的混合 Starlette 应用
+
+    这个函数创建一个 Starlette 应用，可以同时处理：
+    - SSE (Server-Sent Events) 连接：用于实时、持久连接
+    - StreamableHTTP 请求：用于标准的 HTTP 请求-响应模式
+
+    Args:
+        mcp_instance: FastMCP 服务器实例
+        debug: 是否启用调试模式
+
+    Returns:
+        配置好的 Starlette 应用实例
+    """
+    logger.info("创建混合传输 Starlette 应用")
+
+    # 获取底层 MCP 服务器实例
+    mcp_server = mcp_instance._mcp_server
+
+    # 创建 SSE 传输处理器
+    sse = SseServerTransport("/messages/")
+
+    # 创建 StreamableHTTP 会话管理器
+    session_manager = StreamableHTTPSessionManager(
+        app=mcp_server,
+        event_store=None,
+        json_response=True,
+        stateless=True,
+    )
+
+    # SSE 处理函数
+    async def handle_sse(request: Request) -> Response:
+        """处理 SSE 连接请求"""
+        logger.info(f"收到 SSE 连接请求: {request.client}")
+        try:
+            async with sse.connect_sse(
+                request.scope, request.receive, request._send
+            ) as (read_stream, write_stream):
+                await mcp_server.run(
+                    read_stream, write_stream,
+                    mcp_server.create_initialization_options()
+                )
+            return Response()
+        except Exception as e:
+            logger.error(f"SSE 连接处理错误: {e}")
+            return Response("SSE connection error", status_code=500)
+
+    # StreamableHTTP 处理函数
+    async def handle_streamable_http(scope: Scope, receive: Receive, send: Send) -> None:
+        """处理 StreamableHTTP 请求"""
+        logger.info("收到 StreamableHTTP 请求")
+        try:
+            await session_manager.handle_request(scope, receive, send)
+        except Exception as e:
+            logger.error(f"StreamableHTTP 请求处理错误: {e}")
+            # 发送错误响应
+            response = Response("HTTP request error", status_code=500)
+            await response(scope, receive, send)
+
+    # 生命周期管理函数
+    @asynccontextmanager
+    async def lifespan(app: Starlette):
+        """管理应用生命周期"""
+        logger.info("启动混合传输服务器")
+        try:
+            async with session_manager.run():
+                yield
+        except Exception as e:
+            logger.error(f"会话管理器启动失败: {e}")
+            raise
+        finally:
+            logger.info("关闭混合传输服务器")
+
+    # 创建 Starlette 应用
+    app = Starlette(
+        debug=debug,
+        routes=[
+            # SSE 连接端点
+            Route("/sse", endpoint=handle_sse, methods=["GET"]),
+            # SSE 消息处理端点
+            Mount("/messages/", app=sse.handle_post_message),
+            # StreamableHTTP 端点
+            Mount("/mcp", app=handle_streamable_http),
+        ],
+        lifespan=lifespan,
+    )
+
+    # 在应用状态中存储服务器信息
+    app.state.fastmcp_server = mcp_instance
+    app.state.supported_transports = ["sse", "streamable-http"]
+
+    logger.info("混合传输 Starlette 应用创建完成")
+    return app
+
+
 def main():
     """MCP服务器主入口函数 - 支持多种传输协议"""
     import argparse
     
     # 解析命令行参数
     parser = argparse.ArgumentParser(description='DOCX MCP 服务器')
-    parser.add_argument('--transport', '-t', 
-                       choices=['stdio', 'sse', 'streamable-http'],
+    parser.add_argument('--transport', '-t',
+                       choices=['stdio', 'sse', 'streamable-http', 'hybrid'],
                        default='stdio',
-                       help='传输协议类型 (默认: stdio)')
-    parser.add_argument('--host', 
+                       help='Transport protocol type (default: stdio, hybrid=both SSE and HTTP)')
+    parser.add_argument('--host',
                        default='localhost',
-                       help='HTTP/SSE 服务器主机地址 (默认: localhost)')
+                       help='HTTP/SSE server host address (default: localhost)')
     parser.add_argument('--port', '-p',
                        type=int,
                        default=8000,
-                       help='HTTP/SSE 服务器端口 (默认: 8000)')
+                       help='HTTP/SSE server port (default: 8000)')
+    parser.add_argument('--debug',
+                       action='store_true',
+                       help='Enable debug mode (default: False)')
     
     args = parser.parse_args()
     
     # 只在非STDIO模式下输出启动信息
     if args.transport != 'stdio':
         print("=" * 60)
-        print("🚀 启动 DOCX MCP 服务器")
+        print("Starting DOCX MCP Server")
         print("=" * 60)
         print()
-        print("📦 服务器信息:")
-        print(f"   名称: FinalCompleteDocxProcessor")
-        print(f"   传输协议: {args.transport.upper()}")
-        if args.transport in ['sse', 'streamable-http']:
-            print(f"   地址: http://{args.host}:{args.port}")
+        print("Server Information:")
+        print(f"   Name: FinalCompleteDocxProcessor")
+        print(f"   Transport: {args.transport.upper()}")
+
+        if args.transport == 'hybrid':
+            print(f"   Address: http://{args.host}:{args.port}")
+            print()
+            print("Hybrid Transport Endpoints:")
+            print(f"   - SSE Connection: http://{args.host}:{args.port}/sse")
+            print(f"   - SSE Messages: http://{args.host}:{args.port}/messages/")
+            print(f"   - HTTP API: http://{args.host}:{args.port}/mcp")
+        elif args.transport in ['sse', 'streamable-http']:
+            print(f"   Address: http://{args.host}:{args.port}")
+
         print()
-        print("🛠️  功能模块:")
-        print("   - 基础文档管理 (8个工具)")
-        print("   - 文本内容处理 (5个工具)")
-        print("   - 表格操作 (6个工具)")
-        print("   - 表格分析 (5个工具)")
-        print("   - 表格填充 (4个工具)")
-        print("   - 图片处理 (3个工具)")
-        print("   - 页面设置 (3个工具)")
-        print("   - 智能功能 (5个工具)")
-        print("   - 系统状态 (3个工具)")
+        print("Feature Modules:")
+        print("   - Basic Document Management (8 tools)")
+        print("   - Text Content Processing (5 tools)")
+        print("   - Table Operations (6 tools)")
+        print("   - Table Analysis (5 tools)")
+        print("   - Table Filling (4 tools)")
+        print("   - Image Processing (3 tools)")
+        print("   - Page Setup (3 tools)")
+        print("   - Smart Features (5 tools)")
+        print("   - System Status (3 tools)")
         print()
-        print("📊 总计: 42个MCP工具")
+        print("Total: 42 MCP Tools")
         print("=" * 60)
         print()
     
@@ -2465,27 +2584,49 @@ def main():
             # STDIO 传输（默认，用于 Cursor/Claude Desktop）
             logger.info("使用 STDIO 传输协议启动服务器")
             mcp.run(transport='stdio', show_banner=False)
-            
+
+        elif args.transport == 'hybrid':
+            # 混合传输模式 - 同时支持 SSE 和 StreamableHTTP
+            logger.info(f"使用混合传输协议启动服务器: {args.host}:{args.port}")
+            print(f"Hybrid transport server running on: http://{args.host}:{args.port}")
+            print(f"Supported transports:")
+            print(f"   - SSE: http://{args.host}:{args.port}/sse")
+            print(f"   - HTTP: http://{args.host}:{args.port}/mcp")
+            print()
+
+            # 创建混合应用
+            app = create_hybrid_starlette_app(mcp, debug=args.debug)
+
+            # 启动服务器
+            config = uvicorn.Config(
+                app=app,
+                host=args.host,
+                port=args.port,
+                log_level="debug" if args.debug else "info"
+            )
+            server = uvicorn.Server(config)
+            server.run()
+
         elif args.transport == 'sse':
             # SSE (Server-Sent Events) 传输
             logger.info(f"使用 SSE 传输协议启动服务器: {args.host}:{args.port}")
-            print(f"🌐 SSE 服务器运行在: http://{args.host}:{args.port}")
-            print(f"📡 连接端点: http://{args.host}:{args.port}/sse")
+            print(f"SSE server running on: http://{args.host}:{args.port}")
+            print(f"Connection endpoint: http://{args.host}:{args.port}/sse")
             mcp.run(transport='sse', host=args.host, port=args.port)
-            
+
         elif args.transport == 'streamable-http':
             # Streamable HTTP 传输
             logger.info(f"使用 Streamable HTTP 传输协议启动服务器: {args.host}:{args.port}")
-            print(f"🌐 HTTP 服务器运行在: http://{args.host}:{args.port}")
-            print(f"📡 API 端点: http://{args.host}:{args.port}/mcp")
+            print(f"HTTP server running on: http://{args.host}:{args.port}")
+            print(f"API endpoint: http://{args.host}:{args.port}/mcp")
             mcp.run(transport='streamable-http', host=args.host, port=args.port)
             
     except KeyboardInterrupt:
         print("\n")
-        print("👋 服务器已停止")
+        print("Server stopped")
         logger.info("服务器被用户中断")
     except Exception as e:
-        print(f"\n❌ 服务器启动失败: {e}")
+        print(f"\nServer startup failed: {e}")
         logger.error(f"服务器启动失败: {e}")
         import traceback
         traceback.print_exc()
